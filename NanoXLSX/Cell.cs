@@ -1,6 +1,6 @@
 ﻿/*
  * NanoXLSX is a small .NET library to generate and read XLSX (Microsoft Excel 2007 or newer) files in an easy and native way
- * Copyright Raphael Stoeckli © 2020
+ * Copyright Raphael Stoeckli © 2021
  * This library is licensed under the MIT License.
  * You find a copy of the license in project folder or on: http://opensource.org/licenses/MIT
  */
@@ -63,6 +63,19 @@ namespace NanoXLSX
             FixedColumn,
             /// <summary>Row and column of the address is fixed (e.g. '$C$3')</summary>
             FixedRowAndColumn
+        }
+
+        /// <summary>
+        /// Enum to define the scope of a passed address string (used in static context)
+        /// </summary>
+        public enum AddressScope
+        {
+            /// <summary>The address represents a single cell</summary>
+            SingleAddress,
+            /// <summary>The address represents a range of cells</summary>
+            Range,
+            /// <summary>The address expression is invalid</summary>
+            Invalid
         }
 
         #endregion
@@ -279,7 +292,7 @@ namespace NanoXLSX
             if (Value == null)
             {
                 DataType = CellType.EMPTY;
-                Value = "";
+                Value = null;
                 return;
             }
             if (DataType == CellType.FORMULA || DataType == CellType.EMPTY)
@@ -565,7 +578,7 @@ namespace NanoXLSX
                 throw new FormatException("The cell address is null or empty and could not be resolved");
             }
             address =  Utils.ToUpper(address);
-            Regex rx = new Regex("([A-Z]{1,3})([0-9]{1,7})");
+            Regex rx = new Regex("^([A-Z]{1,3})([0-9]{1,7})$");
             Match mx = rx.Match(address);
             if (mx.Groups.Count != 3)
             {
@@ -675,6 +688,33 @@ namespace NanoXLSX
             { sb.Append((char)(k + ASCII_OFFSET)); }
             sb.Append((char)(j + ASCII_OFFSET));
             return sb.ToString();
+        }
+
+        /// <summary>
+        /// Gets the scope of the passed address (string expression). Scope means either single cell adress or range
+        /// </summary>
+        /// <param name="addressExpression">Address expression</param>
+        /// <returns>Scope of the address expression</returns>
+        public static AddressScope GetAddressScope(String addressExpression)
+        {
+            try
+            {
+                ResolveCellCoordinate(addressExpression);
+                return AddressScope.SingleAddress;
+            }
+            catch
+            {
+                try
+                {
+                    ResolveCellRange(addressExpression);
+                    return AddressScope.Range;
+                }
+                catch
+                {
+                    return AddressScope.Invalid;
+                }
+            }
+            
         }
         #endregion
 

@@ -1,6 +1,6 @@
 ﻿/*
  * NanoXLSX is a small .NET library to generate and read XLSX (Microsoft Excel 2007 or newer) files in an easy and native way
- * Copyright Raphael Stoeckli © 2020
+ * Copyright Raphael Stoeckli © 2021
  * This library is licensed under the MIT License.
  * You find a copy of the license in project folder or on: http://opensource.org/licenses/MIT
  */
@@ -439,7 +439,7 @@ namespace NanoXLSX
         private Cell CastValue(object value, int column, int row)
         {
             Cell c;
-            if (value.GetType() == typeof(Cell))
+            if (value != null && value.GetType() == typeof(Cell))
             {
                 c = (Cell)value;
                 c.WorksheetReference = this;
@@ -638,9 +638,9 @@ namespace NanoXLSX
         /// All other types will be casted into a string using the default ToString() method</remarks>
         /// <exception cref="RangeException">Throws an RangeException if the number of cells resolved from the range differs from the number of passed values</exception>
         /// <exception cref="StyleException">Throws an UndefinedStyleException if the active style cannot be referenced while creating the cells</exception>
-        public void AddCellRange(IEnumerable<object> values, Address startAddress, Address endAddress)
+        public void AddCellRange(IReadOnlyList<object> values, Address startAddress, Address endAddress)
         {
-            AddCellRangeInternal(values as List<object>, startAddress, endAddress, null);
+            AddCellRangeInternal(values, startAddress, endAddress, null);
         }
 
         /// <summary>
@@ -655,9 +655,9 @@ namespace NanoXLSX
         /// All other types will be casted into a string using the default ToString() method</remarks>
         /// <exception cref="RangeException">Throws an RangeException if the number of cells resolved from the range differs from the number of passed values</exception>
         /// <exception cref="StyleException">Throws an UndefinedStyleException if the passed style is malformed</exception>
-        public void AddCellRange(IEnumerable<object> values, Address startAddress, Address endAddress, Style style)
+        public void AddCellRange(IReadOnlyList<object> values, Address startAddress, Address endAddress, Style style)
         {
-            AddCellRangeInternal(values as List<object>, startAddress, endAddress, style);
+            AddCellRangeInternal(values, startAddress, endAddress, style);
         }
 
         /// <summary>
@@ -671,10 +671,10 @@ namespace NanoXLSX
         /// <exception cref="RangeException">Throws an RangeException if the number of cells resolved from the range differs from the number of passed values</exception>
         /// <exception cref="StyleException">Throws an UndefinedStyleException if the active style cannot be referenced while creating the cells</exception>
         /// <exception cref="Exceptions.FormatException">Throws a FormatException if the passed cell range is malformed</exception>
-        public void AddCellRange(IEnumerable<object> values, string cellRange)
+        public void AddCellRange(IReadOnlyList<object> values, string cellRange)
         {
             Range range = Cell.ResolveCellRange(cellRange);
-            AddCellRangeInternal(values as List<object>, range.StartAddress, range.EndAddress, null);
+            AddCellRangeInternal(values, range.StartAddress, range.EndAddress, null);
         }
 
         /// <summary>
@@ -689,10 +689,10 @@ namespace NanoXLSX
         /// <exception cref="RangeException">Throws an RangeException if the number of cells resolved from the range differs from the number of passed values</exception>
         /// <exception cref="StyleException">Throws an UndefinedStyleException if the passed style is malformed</exception>
         /// <exception cref="Exceptions.FormatException">Throws a FormatException if the passed cell range is malformed</exception>
-        public void AddCellRange(IEnumerable<object> values, string cellRange, Style style)
+        public void AddCellRange(IReadOnlyList<object> values, string cellRange, Style style)
         {
             Range range = Cell.ResolveCellRange(cellRange);
-            AddCellRangeInternal(values as List<object>, range.StartAddress, range.EndAddress, style);
+            AddCellRangeInternal(values, range.StartAddress, range.EndAddress, style);
         }
 
         /// <summary>
@@ -718,7 +718,7 @@ namespace NanoXLSX
         /// All other types will be casted into a string using the default ToString() method</remarks>
         /// <exception cref="RangeException">Throws an RangeException if the number of cells differs from the number of passed values</exception>
         /// <exception cref="StyleException">Throws an StyleException if the active style cannot be referenced while creating the cells</exception>
-        private void AddCellRangeInternal<T>(List<T> values, Address startAddress, Address endAddress, Style style)
+        private void AddCellRangeInternal<T>(IReadOnlyList<T> values, Address startAddress, Address endAddress, Style style)
         {
             List<Address> addresses = Cell.GetCellRange(startAddress, endAddress) as List<Address>;
             if (values.Count != addresses.Count)
@@ -794,6 +794,84 @@ namespace NanoXLSX
             Cell.ResolveCellCoordinate(address, out column, out row);
             return RemoveCell(column, row);
         }
+        #endregion
+
+        #region methods_setStyle
+
+        /// <summary>
+        /// Sets the passed style on the passed cell range. If cells are already existing, the style will be added or replaced. Otherwise, an empty (numeric) cell will be added with the assigned style
+        /// </summary>
+        /// <param name="cellRange">Cell range to apply the style</param>
+        /// <param name="style">Style to apply</param>
+        /// <remarks>Note: This method may invalidate an existing date value since dates are defined by specific style. The result of a redefinition will be a number, instead of a date</remarks>
+        public void SetStyle(Range cellRange, Style style)
+        {
+            IReadOnlyList<Address> addresses = cellRange.ResolveEnclosedAddresses();
+            foreach(Address address in addresses)
+            {
+                String key = address.GetAddress();
+                if (this.cells.ContainsKey(key))
+                {
+                    cells[key].SetStyle(style);
+                }
+                else
+                {
+                    AddCell(null, address.Column, address.Row, style);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Sets the passed style on the passed cell range, derived from a start and end address. If cells are already existing, the style will be added or replaced. 
+        /// Otherwise, an empty (numeric) cell will be added with the assigned style
+        /// </summary>
+        /// <param name="startAddress">Start address of the cell range</param>
+        /// <param name="endAddress">End address of the cell range</param>
+        /// <param name="style">Style to apply</param>
+        /// <remarks>Note: This method may invalidate an existing date value since dates are defined by specific style. The result of a redefinition will be a number, instead of a date</remarks>
+        public void SetStyle(Address startAddress, Address endAddress, Style style)
+        {
+            SetStyle(new Range(startAddress, endAddress), style);
+        }
+
+        /// <summary>
+        /// Sets the passed style on the passed (singular) cell address. If the cell is already existing, the style will be added or replaced.
+        /// Otherwise, an empty (numeric) cell will be added with the assigned style
+        /// </summary>
+        /// <param name="address">Cell address to apply the style</param>
+        /// <param name="style">Style to apply</param>
+        /// <remarks>Note: This method may invalidate an existing date value since dates are defined by specific style. The result of a redefinition will be a number, instead of a date</remarks>
+        public void SetStyle(Address address, Style style)
+        {
+            SetStyle(address, address, style);
+        }
+
+        /// <summary>
+        /// Sets the passed style on the passed address expression. Such an expression may be a single cell or a cell range.
+        /// If the cell is already existing, the style will be added or replaced. Otherwise, an empty (numeric) cell or cell range will be added with the assigned style
+        /// </summary>
+        /// <param name="addressExpression">Expression of a cell address or range of addresses</param>
+        /// <param name="style">Style to apply</param>
+        /// <remarks>Note: This method may invalidate an existing date value since dates are defined by specific style. The result of a redefinition will be a number, instead of a date</remarks>
+        public void SetStyle(string addressExpression, Style style)
+        {
+            Cell.AddressScope scope = Cell.GetAddressScope(addressExpression);
+            if (scope == Cell.AddressScope.SingleAddress)
+            {
+                Address address = new Address(addressExpression);
+                SetStyle(address, style);
+            }
+            else if (scope == Cell.AddressScope.Range)
+            {
+                Range range = new Range(addressExpression);
+                SetStyle(range, style);
+            }
+            else
+            {
+                throw new FormatException("InvalidAddressExpression", "The passed address'" + addressExpression + "' is neither a cell address, nor a range");
+            }
+        }
+
         #endregion
 
         #region common_methods

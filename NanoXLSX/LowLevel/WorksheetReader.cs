@@ -1,6 +1,6 @@
 ﻿/*
  * NanoXLSX is a small .NET library to generate and read XLSX (Microsoft Excel 2007 or newer) files in an easy and native way
- * Copyright Raphael Stoeckli © 2020
+ * Copyright Raphael Stoeckli © 2021
  * This library is licensed under the MIT License.
  * You find a copy of the license in project folder or on: http://opensource.org/licenses/MIT
  */
@@ -119,7 +119,10 @@ namespace NanoXLSX.LowLevel
         /// </returns>
         public bool HasColumn(string columnAddress)
         {
-            if (string.IsNullOrEmpty(columnAddress)) { return false; }
+            if (string.IsNullOrEmpty(columnAddress))
+            {
+                return false;
+            }
             int columnNumber = Cell.ResolveColumn(columnAddress);
             foreach (KeyValuePair<string, Cell> cell in Data)
             {
@@ -186,7 +189,7 @@ namespace NanoXLSX.LowLevel
         /// </summary>
         /// <param name="rowNumber">Row number</param>
         /// <returns>List of cell objects</returns>
-        public List<Cell> GetRow(int rowNumber)
+        public IReadOnlyList<Cell> GetRow(int rowNumber)
         {
             List<Cell> list = new List<Cell>();
             foreach (KeyValuePair<string, Cell> cell in Data)
